@@ -1113,7 +1113,22 @@ function cleanupSubs(){
     shareCode.disabled=false; shareNick.disabled=false; shareJoin.style.display='';
     setMsg('Odpojeno.', 'info');
   };
+function canonicalPath(href){
+  // převede relativní i absolutní href na jednotný tvar: /path?query#hash
+  try{
+    const u = new URL(href, location.origin);
+    return u.pathname + u.search + u.hash;
+  }catch(_){
+    return href || '';
+  }
+}
 
+function herePath(){
+  return location.pathname + location.search + location.hash;
+}
+
+
+  
   // --- SYNCHRON NAVIGACE: client poslouchá „current“ a přesměruje ---
 function attachNavigationSync(){
   const local = getLocalSession();
@@ -1128,7 +1143,7 @@ function attachNavigationSync(){
     const cur = s.current;
     if (!cur || !cur.path) return;
 
-    // klient musí být active (ne paused)
+    // klient musí být ACTIVE (ne pending/paused/denied/…)
     try{
       const meSnap = await getDoc(memberDoc(local.code, uid));
       const me = meSnap.data() || {};
@@ -1136,13 +1151,15 @@ function attachNavigationSync(){
       if (me.status !== 'active') return;
     }catch(_){ return; }
 
-    const target = cur.path;
-    const here = location.pathname + location.search;
-    if (here !== target) {
+    const target = canonicalPath(cur.path);
+    const here = herePath();
+
+    if (here !== target){
       location.href = target;
     }
   });
 }
+
 
 
   // --- Host update: když host klikne na píseň v seznamu, zapíšeme current ---
@@ -1161,6 +1178,7 @@ function interceptNavigationForHost(){
     if (!a) return;
 
     const href = a.getAttribute('href') || '';
+    const target = canonicalPath(href);
     if (!isInternalZpjevnicekLink(href)) return;
 
     const local = getLocalSession();
@@ -1175,7 +1193,7 @@ function interceptNavigationForHost(){
 
     try{
       await updateDoc(sessionDoc(local.code), {
-        current: { path: href, at: serverTimestamp() },
+        current: { path: target, at: serverTimestamp() },
         lastActive: serverTimestamp(),
         expiresAt: new Date(Date.now() + 60*60*1000),
         generation: local.generation,
@@ -1185,7 +1203,7 @@ function interceptNavigationForHost(){
     }
 
     // ✅ Až potom přejdi
-    location.href = href;
+   location.href = target;
   }, true);
 }
 
