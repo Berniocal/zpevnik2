@@ -725,7 +725,6 @@ function cleanupSubs(){
 
   if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
 }
-}
 
   function sessionDoc(code){ return doc(db, 'zpevnikShare', code); }
   function memberDoc(code, memberUid){ return doc(db, 'zpevnikShare', code, 'members', memberUid); }
