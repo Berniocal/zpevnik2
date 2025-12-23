@@ -1065,6 +1065,12 @@ function cleanupSubs(){
       } else {
         hostPanel.style.display='none'; clientPanel.style.display='block';
       }
+      if (local?.role === 'host') {
+  interceptNavigationForHost();
+} else if (local?.role === 'client') {
+  attachNavigationSync();
+}
+
       setMsg('Hotovo.', 'info');
     }catch(e){
       console.error(e);
@@ -1194,7 +1200,8 @@ if (local?.code){
   paintShare(local.role === 'host' ? 'host' : 'client');
   attach(local.code);
   attachNavigationSync();
-  interceptSongLinks();
+  interceptNavigationForHost();
+
 }
 
   })();
