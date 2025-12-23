@@ -1141,26 +1141,50 @@ function attachNavigationSync(){
 
   // --- Host update: když host klikne na píseň v seznamu, zapíšeme current ---
   // (Bez toho by se ostatní rozjely až po načtení song.html u hosta.)
-  function interceptSongLinks(){
-    document.addEventListener('click', async (e)=>{
-      const a = e.target?.closest?.('a');
-      if (!a) return;
-      const href = a.getAttribute('href') || '';
-      if (!href.includes('/zpjevnicek/song.html?id=')) return;
+function isInternalZpjevnicekLink(href){
+  if (!href) return false;
+  if (href.startsWith('#')) return false;
+  if (href.startsWith('mailto:') || href.startsWith('tel:')) return false;
+  if (href.includes('://') && !href.startsWith(location.origin)) return false; // cizí doména
+  // povol jen odkazy uvnitř projektu
+  return href.includes('/zpjevnicek/');
+}
 
-      const local = getLocalSession();
-      if (!HAS_CONFIG || !local?.code || local.role !== 'host') return;
-      // host sdílí – zapíšeme „current“
-      try{
-        await updateDoc(sessionDoc(local.code), {
-          current: { path: href, at: serverTimestamp() },
-          lastActive: serverTimestamp(),
-          expiresAt: new Date(Date.now() + 60*60*1000),
-          generation: local.generation,
-        });
-      }catch(_){ }
-    }, true);
-  }
+function interceptNavigationForHost(){
+  document.addEventListener('click', async (e)=>{
+    const a = e.target?.closest?.('a');
+    if (!a) return;
+
+    const href = a.getAttribute('href') || '';
+    if (!isInternalZpjevnicekLink(href)) return;
+
+    const local = getLocalSession();
+    if (!HAS_CONFIG || !local?.code || local.role !== 'host') return;
+
+    // otevření do nové záložky nech být
+    if (a.target === '_blank' || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+
+    // 1) zastav navigaci
+    e.preventDefault();
+    e.stopPropagation();
+
+    // 2) zapiš current
+    try{
+      await updateDoc(sessionDoc(local.code), {
+        current: { path: href, at: serverTimestamp() },
+        lastActive: serverTimestamp(),
+        expiresAt: new Date(Date.now() + 60*60*1000),
+        generation: local.generation,
+      });
+    } catch(err){
+      console.error("HOST current update failed:", err);
+    }
+
+    // 3) teprve pak přejdi
+    location.href = href;
+  }, true);
+}
+
 
   // pokud je v localStorage session, hned nastav barvu tlačítka + attach
   (function boot(){
