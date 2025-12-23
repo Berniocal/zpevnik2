@@ -1373,5 +1373,99 @@ load();
   })();
 
 </script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
+  import {
+    getFirestore, doc, getDoc, updateDoc, onSnapshot,
+    serverTimestamp
+  } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js";
+
+  const FIREBASE_CONFIG = {
+    apiKey: "AIzaSyCwukp1IylOurKvEsKc7uCnyUJLoCtWI2o",
+    authDomain: "zpjevnicek.firebaseapp.com",
+    projectId: "zpjevnicek",
+    storageBucket: "zpjevnicek.firebasestorage.app",
+    messagingSenderId: "842022440214",
+    appId: "1:842022440214:web:0dbddb0a435c3cd9705437"
+  };
+
+  const SESSION_KEY = 'zpj_share_session';
+  const UID_KEY = 'zpj_share_uid';
+
+  const uid = localStorage.getItem(UID_KEY);
+  const local = (()=>{ try { return JSON.parse(localStorage.getItem(SESSION_KEY)||'null'); } catch { return null; } })();
+  if (!uid || !local?.code || !local?.generation) {
+    // nejsme v session → nic nedělej
+    // (song.html normálně funguje)
+  } else {
+    const app = initializeApp(FIREBASE_CONFIG);
+    const db = getFirestore(app);
+
+    const sessionRef = doc(db, 'zpevnikShare', local.code);
+    const meRef = doc(db, 'zpevnikShare', local.code, 'members', uid);
+
+    function isInternalZpjevnicekLink(href){
+      if (!href) return false;
+      if (href.startsWith('#')) return false;
+      if (href.startsWith('mailto:') || href.startsWith('tel:')) return false;
+      if (href.includes('://') && !href.startsWith(location.origin)) return false;
+      return href.includes('/zpjevnicek/');
+    }
+
+    // HOST: zapisuje current při jakékoliv navigaci
+    if (local.role === 'host') {
+      document.addEventListener('click', async (e)=>{
+        const a = e.target?.closest?.('a');
+        if (!a) return;
+        const href = a.getAttribute('href') || '';
+        if (!isInternalZpjevnicekLink(href)) return;
+
+        if (a.target === '_blank' || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        try{
+          await updateDoc(sessionRef, {
+            current: { path: href, at: serverTimestamp() },
+            lastActive: serverTimestamp(),
+            expiresAt: new Date(Date.now() + 60*60*1000),
+            generation: local.generation,
+          });
+        }catch(err){
+          console.error("HOST current update failed:", err);
+        }
+
+        location.href = href;
+      }, true);
+    }
+
+    // CLIENT: poslouchá current a přesměruje se
+    if (local.role === 'client') {
+      onSnapshot(sessionRef, async (snap)=>{
+        if (!snap.exists()) return;
+        const s = snap.data() || {};
+        if (s.generation !== local.generation) return;
+
+        const cur = s.current;
+        if (!cur || !cur.path) return;
+
+        // jen když je client active
+        try{
+          const meSnap = await getDoc(meRef);
+          const me = meSnap.data() || {};
+          if (me.generation !== local.generation) return;
+          if (me.status !== 'active') return;
+        }catch(_){ return; }
+
+        const target = cur.path;
+        const here = location.pathname + location.search;
+        if (here !== target) location.href = target;
+      });
+    }
+  }
+</script>
+
+  
 </body>
 </html>
