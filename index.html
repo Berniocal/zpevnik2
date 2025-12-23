@@ -715,15 +715,17 @@ load();
   function setLocalSession(s){ localStorage.setItem(SESSION_KEY, JSON.stringify(s)); }
   function clearLocalSession(){ localStorage.removeItem(SESSION_KEY); }
 
-  function cleanupSubs(){
-    if (unsubSession) try{unsubSession();}catch(_){}
-    if (unsubMembers) try{unsubMembers();}catch(_){}
-    if (unsubMe) try{unsubMe();}catch(_){}
-        unsubSession = unsubMembers = unsubMe = null;
-    if (unsubNav) try{unsubNav();}catch(_){}
-unsubNav = null;
-    if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
-  }
+function cleanupSubs(){
+  if (unsubSession) try{unsubSession();}catch(_){}
+  if (unsubMembers) try{unsubMembers();}catch(_){}
+  if (unsubMe) try{unsubMe();}catch(_){}
+  if (unsubNav) try{unsubNav();}catch(_){}
+
+  unsubSession = unsubMembers = unsubMe = unsubNav = null;
+
+  if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
+}
+}
 
   function sessionDoc(code){ return doc(db, 'zpevnikShare', code); }
   function memberDoc(code, memberUid){ return doc(db, 'zpevnikShare', code, 'members', memberUid); }
@@ -1108,13 +1110,35 @@ unsubNav = null;
   };
 
   // --- SYNCHRON NAVIGACE: client poslouchá „current“ a přesměruje ---
-  function attachNavigationSync(){
-    const local = getLocalSession();
-    if (!HAS_CONFIG || !local?.code || local.role !== 'client') return;
-if (unsubNav) try{unsubNav();}catch(_){}
-unsubNav = onSnapshot(sessionDoc(local.code), async (snap)=>{ ... });
+function attachNavigationSync(){
+  const local = getLocalSession();
+  if (!HAS_CONFIG || !local?.code || local.role !== 'client') return;
 
-  }
+  if (unsubNav) try{unsubNav();}catch(_){}
+  unsubNav = onSnapshot(sessionDoc(local.code), async (snap)=>{
+    if (!snap.exists()) return;
+    const s = snap.data() || {};
+    if (s.generation !== local.generation) return;
+
+    const cur = s.current;
+    if (!cur || !cur.path) return;
+
+    // klient musí být active (ne paused)
+    try{
+      const meSnap = await getDoc(memberDoc(local.code, uid));
+      const me = meSnap.data() || {};
+      if (me.generation !== local.generation) return;
+      if (me.status !== 'active') return;
+    }catch(_){ return; }
+
+    const target = cur.path;
+    const here = location.pathname + location.search;
+    if (here !== target) {
+      location.href = target;
+    }
+  });
+}
+
 
   // --- Host update: když host klikne na píseň v seznamu, zapíšeme current ---
   // (Bez toho by se ostatní rozjely až po načtení song.html u hosta.)
