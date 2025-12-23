@@ -1151,8 +1151,7 @@ function isInternalZpjevnicekLink(href){
   if (!href) return false;
   if (href.startsWith('#')) return false;
   if (href.startsWith('mailto:') || href.startsWith('tel:')) return false;
-  if (href.includes('://') && !href.startsWith(location.origin)) return false; // cizí doména
-  // povol jen odkazy uvnitř projektu
+  if (href.includes('://') && !href.startsWith(location.origin)) return false;
   return href.includes('/zpjevnicek/');
 }
 
@@ -1170,11 +1169,10 @@ function interceptNavigationForHost(){
     // otevření do nové záložky nech být
     if (a.target === '_blank' || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
 
-    // 1) zastav navigaci
+    // ✅ STOP navigaci – nejdřív zapiš current
     e.preventDefault();
     e.stopPropagation();
 
-    // 2) zapiš current
     try{
       await updateDoc(sessionDoc(local.code), {
         current: { path: href, at: serverTimestamp() },
@@ -1182,15 +1180,14 @@ function interceptNavigationForHost(){
         expiresAt: new Date(Date.now() + 60*60*1000),
         generation: local.generation,
       });
-    } catch(err){
+    }catch(err){
       console.error("HOST current update failed:", err);
     }
 
-    // 3) teprve pak přejdi
+    // ✅ Až potom přejdi
     location.href = href;
   }, true);
 }
-
 
   // pokud je v localStorage session, hned nastav barvu tlačítka + attach
   (function boot(){
