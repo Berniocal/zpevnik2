@@ -1412,12 +1412,25 @@ load();
       return href.includes('/zpjevnicek/');
     }
 
+    function canonicalPath(href){
+  try{
+    const u = new URL(href, location.origin);
+    return u.pathname + u.search + u.hash;
+  }catch(_){
+    return href || '';
+  }
+}
+function herePath(){
+  return location.pathname + location.search + location.hash;
+}
+
     // HOST: zapisuje current při jakékoliv navigaci
     if (local.role === 'host') {
       document.addEventListener('click', async (e)=>{
         const a = e.target?.closest?.('a');
         if (!a) return;
         const href = a.getAttribute('href') || '';
+        const target = canonicalPath(href);
         if (!isInternalZpjevnicekLink(href)) return;
 
         if (a.target === '_blank' || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
@@ -1427,7 +1440,7 @@ load();
 
         try{
           await updateDoc(sessionRef, {
-            current: { path: href, at: serverTimestamp() },
+            current: { path: target, at: serverTimestamp() },
             lastActive: serverTimestamp(),
             expiresAt: new Date(Date.now() + 60*60*1000),
             generation: local.generation,
@@ -1436,7 +1449,7 @@ load();
           console.error("HOST current update failed:", err);
         }
 
-        location.href = href;
+        location.href = target;
       }, true);
     }
 
@@ -1458,9 +1471,10 @@ load();
           if (me.status !== 'active') return;
         }catch(_){ return; }
 
-        const target = cur.path;
-        const here = location.pathname + location.search;
-        if (here !== target) location.href = target;
+const target = canonicalPath(cur.path);
+const here = herePath();
+if (here !== target) location.href = target;
+
       });
     }
   }
