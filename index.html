@@ -626,12 +626,13 @@ load();
   // 1) VLOŽ SVŮJ KONFIG (Firebase Console → Project settings → Your apps → Config)
   //    Tip: nech to v JS jako objekt, nic neobaluj uvozovkami navíc.
   const FIREBASE_CONFIG = window.FIREBASE_CONFIG || {
-    // apiKey: "…",
-    // authDomain: "…",
-    // projectId: "…",
-    // storageBucket: "…",
-    // messagingSenderId: "…",
-    // appId: "…",
+   apiKey: "AIzaSyCwukp1IylOurKvEsKc7uCnyUJLoCtWI2o",
+    authDomain: "zpjevnicek.firebaseapp.com",
+    projectId: "zpjevnicek",
+    storageBucket: "zpjevnicek.firebasestorage.app",
+    messagingSenderId: "842022440214",
+    appId: "1:842022440214:web:0dbddb0a435c3cd9705437",
+    measurementId: "G-HJ5NNLMJKR"
   };
 
   const HAS_CONFIG = !!(FIREBASE_CONFIG && FIREBASE_CONFIG.projectId);
@@ -705,6 +706,7 @@ load();
   let unsubSession = null;
   let unsubMembers = null;
   let unsubMe = null;
+  let unsubNav = null;
   let heartbeatTimer = null;
 
   function getLocalSession(){
@@ -717,7 +719,9 @@ load();
     if (unsubSession) try{unsubSession();}catch(_){}
     if (unsubMembers) try{unsubMembers();}catch(_){}
     if (unsubMe) try{unsubMe();}catch(_){}
-    unsubSession = unsubMembers = unsubMe = null;
+        unsubSession = unsubMembers = unsubMe = null;
+    if (unsubNav) try{unsubNav();}catch(_){}
+unsubNav = null;
     if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
   }
 
@@ -1107,27 +1111,9 @@ load();
   function attachNavigationSync(){
     const local = getLocalSession();
     if (!HAS_CONFIG || !local?.code || local.role !== 'client') return;
-    onSnapshot(sessionDoc(local.code), async (snap)=>{
-      if (!snap.exists()) return;
-      const s = snap.data() || {};
-      if (s.generation !== local.generation) return;
-      const cur = s.current;
-      if (!cur || !cur.path) return;
+if (unsubNav) try{unsubNav();}catch(_){}
+unsubNav = onSnapshot(sessionDoc(local.code), async (snap)=>{ ... });
 
-      // klient musí být active (ne paused)
-      try{
-        const meSnap = await getDoc(memberDoc(local.code, uid));
-        const me = meSnap.data() || {};
-        if (me.generation !== local.generation) return;
-        if (me.status !== 'active') return;
-      }catch(_){ return; }
-
-      const target = cur.path;
-      const here = location.pathname + location.search;
-      if (here !== target) {
-        location.href = target; // index → song.html, atd.
-      }
-    });
   }
 
   // --- Host update: když host klikne na píseň v seznamu, zapíšeme current ---
@@ -1157,12 +1143,13 @@ load();
   (function boot(){
     const local = getLocalSession();
     if (!HAS_CONFIG){ paintShare(''); return; }
-    if (local?.code){
-      paintShare(local.role === 'host' ? 'host' : '');
-      attach(local.code);
-      attachNavigationSync();
-      interceptSongLinks();
-    }
+if (local?.code){
+  paintShare(local.role === 'host' ? 'host' : 'client');
+  attach(local.code);
+  attachNavigationSync();
+  interceptSongLinks();
+}
+
   })();
 
 </script>
